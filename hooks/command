@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+set -x
 
 get_ecr_url() {
   local repository_name="${1}"
@@ -222,7 +223,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
   ${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ADDITIONAL_BUILD_ARGS:-} \
   ${build_args[@]+"${build_args[@]}"} \
   ${caches_from[@]+"${caches_from[@]}"} \
-  ${target_arg} \
+  ${target_arg} --push \
   "${build_context}"
 
 save_digest_as_metadata="${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_SAVE_DIGEST_AS_METADATA:-}"
