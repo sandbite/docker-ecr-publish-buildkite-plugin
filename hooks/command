@@ -200,7 +200,7 @@ else
 fi
 
 read_caches_from
-form_tags
+form_tags "${tags[@]}"
 
 echo '--- Building Docker image'
 if [[ -n ${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ADDITIONAL_BUILD_ARGS:-} ]]; then
@@ -214,6 +214,7 @@ echo "Build context: ${build_context}"
 echo "Target: ${target}"
 
 
+echo $(aws --version)
 docker buildx create --platform linux/amd64,linux/arm64,linux/arm/v7 --name mybuilder --use
 
 docker buildx build --platform linux/amd64,linux/arm64 \
