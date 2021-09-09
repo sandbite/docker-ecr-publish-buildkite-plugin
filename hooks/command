@@ -106,25 +106,6 @@ read_list_property() {
   [[ ${#result[@]} -gt 0 ]] || return 1
 }
 
-push_tags() {
-  local tags=("${@}")
-
-  for region in "${regions[@]}"; do
-
-    echo "Logging in to ECR, region: ${region}"
-    ecr_login "$region" "$account_id"
-
-    image="$(get_ecr_url "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" "${account_id}" "${region}")"
-
-    for tag in "${tags[@]}"; do
-      echo "Tag: '${tag}'"
-      docker tag "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" "${image}:${tag}"
-      docker push "${image}:${tag}"
-    done
-
-  done
-}
-
 form_tags() {
   local tags=("${@}")
 
