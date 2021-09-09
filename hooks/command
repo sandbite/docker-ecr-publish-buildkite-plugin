@@ -166,7 +166,7 @@ target="${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_TARGET:-}"
 build_args=()
 caches_from=()
 docker_tag=()
-tags=("${BUILDKITE_BUILD_NUMBER}")
+tags=()
 
 regions=()
 
