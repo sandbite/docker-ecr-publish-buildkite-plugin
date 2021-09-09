@@ -215,7 +215,7 @@ echo "Target: ${target}"
 
 
 echo $(aws --version)
-# docker buildx create --platform linux/amd64,linux/arm64,linux/arm/v7 --name mybuilder --use
+docker buildx create --platform linux/amd64,linux/arm64,linux/arm/v7 --name mybuilder --use
 
 docker buildx build --platform linux/amd64,linux/arm64 \
   --file "${dockerfile}" \
