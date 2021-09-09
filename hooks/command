@@ -44,7 +44,7 @@ read_caches_from() {
         for region in "${regions[@]}"; do
 
           echo "Logging in to ECR, region: ${region}"
-          # ecr_login "$region" "$account_id"
+          ecr_login "$region" "$account_id"
 
           cache="$(get_ecr_url "${image}" "${account_id}" "${region}"):${tag}"
 
@@ -106,10 +106,32 @@ read_list_property() {
   [[ ${#result[@]} -gt 0 ]] || return 1
 }
 
+push_tags() {
+  local tags=("${@}")
+
+  for region in "${regions[@]}"; do
+
+    echo "Logging in to ECR, region: ${region}"
+    ecr_login "$region" "$account_id"
+
+    image="$(get_ecr_url "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" "${account_id}" "${region}")"
+
+    for tag in "${tags[@]}"; do
+      echo "Tag: '${tag}'"
+      docker tag "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" "${image}:${tag}"
+      docker push "${image}:${tag}"
+    done
+
+  done
+}
+
 form_tags() {
   local tags=("${@}")
 
   for region in "${regions[@]}"; do
+
+    echo "Logging in to ECR, region: ${region}"
+    ecr_login "$region" "$account_id"
 
     image="$(get_ecr_url "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" "${account_id}" "${region}")"
 
@@ -117,6 +139,17 @@ form_tags() {
       docker_tag+=('-t' "${image}:${tag}")
     done
   done
+}
+
+ecr_login() {
+  local region="${1}"
+  local account_id="${2}"
+  aws sts get-caller-identity
+  aws ecr get-login-password \
+    --region "${region}" \
+    | docker login \
+    --username AWS \
+    --password-stdin "${account_id}".dkr.ecr."${region}".amazonaws.com
 }
 
 if [[ -z ${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME:-} ]]; then
