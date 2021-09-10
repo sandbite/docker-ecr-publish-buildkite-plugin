@@ -135,7 +135,6 @@ form_tags() {
 ecr_login() {
   local region="${1}"
   local account_id="${2}"
-  aws sts get-caller-identity
   aws ecr get-login-password \
     --region "${region}" \
     | docker login \
