@@ -15,6 +15,25 @@ steps:
           ecr-name: my-repo
 ```
 
+The following pipeline builds for multi arch and pushes to ecr repo:
+
+```yaml
+steps:
+  - plugins:
+      - sandbite/docker-ecr-publish#v3.0.1:
+          ecr-name: my-repo
+          platform:
+            - linux/amd64
+            - linux/arm64
+          regions:
+            - us-east-1
+            - eu-west-2
+            - ap-south-1
+            - me-south-1
+          tags:
+            - 2.3
+```
+
 An alternate Dockerfile may be specified:
 
 ```yaml
