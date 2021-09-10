@@ -27,6 +27,8 @@ configuration:
       type: string
     account-id:
       type: string
+    platform:
+      type: [array, string]
     region:
       type: [array, string]
     regions:
