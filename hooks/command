@@ -132,6 +132,32 @@ form_tags() {
   done
 }
 
+create_manifest() {
+  local tags=("${@}")
+
+  for region in "${regions[@]}"; do
+
+    echo "Logging in to ECR, region: ${region}"
+    ecr_login "$region" "$account_id"
+
+    image="$(get_ecr_url "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" "${account_id}" "${region}")"
+
+    for tag in "${tags[@]}"; do
+      echo "Pulling images"
+      amd="${image}:${tag}_amd64"
+      arm="${image}:${tag}_arm64"
+
+
+      docker pull $amd
+      docker pull $arm
+
+      echo "Creating manifest"
+      docker manifest create ${image}:${tag} --amend $amd --amend $arm
+      docker manifest push ${image}:${tag}
+    done
+  done
+}
+
 ecr_login() {
   local region="${1}"
   local account_id="${2}"
@@ -140,6 +166,38 @@ ecr_login() {
     | docker login \
     --username AWS \
     --password-stdin "${account_id}".dkr.ecr."${region}".amazonaws.com
+}
+
+push_tags() {
+  local tags=("${@}")
+
+  for region in "${regions[@]}"; do
+
+    local -A push_tasks
+    echo "Logging in to ECR, region: ${region}"
+    ecr_login "$region" "$account_id"
+
+    image="$(get_ecr_url "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" "${account_id}" "${region}")"
+
+    for tag in "${tags[@]}"; do
+      echo "Tag: '${tag}'"
+      docker tag "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" "${image}:${tag}"
+      docker push "${image}:${tag}" &
+      local backgrounded_pid=$!
+      push_tasks[${backgrounded_pid}]="${region}-${image}:${tag}"
+    done
+    # Wait for completion
+    for pid in "${!push_tasks[@]}"; do
+      if wait "$pid"; then
+        echo "[${push_tasks[${pid}]}] Push task succeeded"
+      else
+        echo "[${push_tasks[${pid}]}] Push task failed"
+        exit 1
+      fi
+    done
+    unset push_tasks
+
+  done
 }
 
 if [[ -z ${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME:-} ]]; then
@@ -184,6 +242,7 @@ fi
 
 read_regions
 
+
 if [[ -n ${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ACCOUNT_ID:-} ]]; then
   account_id="${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ACCOUNT_ID}"
 else
@@ -194,6 +253,7 @@ read_caches_from
 form_tags "${tags[@]}"
 
 read_platform
+multi_platform=$?
 
 echo '--- Building Docker image'
 if [[ -n ${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ADDITIONAL_BUILD_ARGS:-} ]]; then
@@ -209,16 +269,34 @@ echo "Platforms: ${platforms:0:${#platforms}-1}"
 
 
 echo $(aws --version)
-docker buildx create --platform linux/amd64,linux/arm64,linux/arm/v7 --name mybuilder --use
+if [[ "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_CREATE_MANIFEST:-false}" =~ ^(true|on|1)$ ]] ; then
+    create_manifest "${tags[@]}"
+    exit 0 
+fi
 
-docker buildx build --platform ${platforms:0:${#platforms}-1} \
+if [[ multi_platform -eq 1 ]]; then
+  docker build \
   --file "${dockerfile}" \
-  ${docker_tag[@]+"${docker_tag[@]}"} \
+  --tag "${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ECR_NAME}" \
   ${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ADDITIONAL_BUILD_ARGS:-} \
   ${build_args[@]+"${build_args[@]}"} \
   ${caches_from[@]+"${caches_from[@]}"} \
-  ${target_arg} --push \
+  ${target_arg} \
   "${build_context}"
+
+  push_tags "${tags[@]}"
+else
+  docker buildx create --platform linux/amd64,linux/arm64,linux/arm/v7 --name mybuilder --use
+
+  docker buildx build --platform ${platforms:0:${#platforms}-1} \
+    --file "${dockerfile}" \
+    ${docker_tag[@]+"${docker_tag[@]}"} \
+    ${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_ADDITIONAL_BUILD_ARGS:-} \
+    ${build_args[@]+"${build_args[@]}"} \
+    ${caches_from[@]+"${caches_from[@]}"} \
+    ${target_arg} --push \
+    "${build_context}"
+fi
 
 save_digest_as_metadata="${BUILDKITE_PLUGIN_DOCKER_ECR_PUBLISH_SAVE_DIGEST_AS_METADATA:-}"
 if [[ -n ${save_digest_as_metadata} ]]; then
@@ -227,4 +305,6 @@ if [[ -n ${save_digest_as_metadata} ]]; then
 
   buildkite-agent meta-data set "${save_digest_as_metadata}" "${image_digest}"
 fi
+
+
 

@@ -41,6 +41,8 @@ configuration:
       type: boolean
     save-digest-as-metadata:
       type: string
+    create-manifest:
+      type: boolean
   required: ['ecr-name']
   not:
     required: ['region', 'regions']
