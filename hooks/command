@@ -286,7 +286,8 @@ if [[ multi_platform -eq 1 ]]; then
 
   push_tags "${tags[@]}"
 else
-  docker buildx create --platform linux/amd64,linux/arm64,linux/arm/v7 --name mybuilder --use
+  INSTANCE_NAME="buildx_$(uuidgen)"
+  docker buildx create --platform linux/amd64,linux/arm64,linux/arm/v7 --name $INSTANCE_NAME --use
 
   docker buildx build --platform ${platforms:0:${#platforms}-1} \
     --file "${dockerfile}" \
